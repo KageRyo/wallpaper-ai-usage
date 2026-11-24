@@ -1,5 +1,12 @@
 # Wallpaper AI Usage
 
+[![Test](https://github.com/KageRyo/wallpaper-ai-usage/actions/workflows/test.yml/badge.svg)](https://github.com/KageRyo/wallpaper-ai-usage/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/github/license/KageRyo/wallpaper-ai-usage)](LICENSE)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)
+![Windows + WSL](https://img.shields.io/badge/platform-Windows%20%2B%20WSL-0078D4)
+[![Wallpaper Engine](https://img.shields.io/badge/Wallpaper%20Engine-Scene-1B2838?logo=steam&logoColor=white)](https://store.steampowered.com/app/431960/Wallpaper_Engine/)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-FE5196?logo=conventionalcommits&logoColor=white)](https://www.conventionalcommits.org/en/v1.0.0/)
+
 Put Codex and Claude Code usage in a corner of your Wallpaper Engine Scene. The panel shows the percentage used and the time until reset for the 5-hour and 7-day windows. A percentage turns orange-yellow at 70% and red at 90%.
 
 ![Usage panel in the bottom-right corner of a Scene](docs/images/panel.png)
