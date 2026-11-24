@@ -1,6 +1,12 @@
 # Wallpaper AI Usage
 
-Put Codex and Claude Code usage in the bottom-right corner of your Wallpaper Engine Scene. The panel shows the percentage used and the time until reset for the 5-hour and 7-day windows. You can change the panel background opacity in the wallpaper settings.
+Put Codex and Claude Code usage in a corner of your Wallpaper Engine Scene. The panel shows the percentage used and the time until reset for the 5-hour and 7-day windows. A percentage turns orange-yellow at 70% and red at 90%.
+
+![Usage panel in the bottom-right corner of a Scene](docs/images/panel.png)
+
+You can change the position, size, colors, rows and warning levels in the wallpaper settings.
+
+![Light panel in the top-left corner with only the Codex row](docs/images/panel-custom.png)
 
 The installer makes a local copy of the Scene you pick. Wallpaper Engine draws the panel, and the two CLIs update it through their existing hooks.
 
@@ -25,7 +31,7 @@ Run the commands below from WSL. Open the Wallpaper Engine editor once so it cre
      --monitor Monitor0
    ~~~
 
-3. In Wallpaper Engine, apply the copy whose title ends in **AI Usage** to that screen. Find the slider under **Usage panel background opacity**.
+3. In Wallpaper Engine, apply the copy whose title ends in **AI Usage** to that screen.
 
 ## Connect Codex and Claude Code
 
@@ -44,13 +50,30 @@ python3 wallpaper_usage.py hooks --claude-command 'bash ~/.claude/my-statusline.
 
 For an immediate Codex refresh, run **python3 wallpaper_usage.py codex --force** after applying the copy. Claude's row fills in after Claude Code provides usage. The panel uses the reported reset times for its countdowns.
 
+## Customize the panel
+
+Select the copy in Wallpaper Engine and scroll to **AI Usage panel** at the end of its properties. Changes show right away.
+
+| Setting | What it changes |
+| --- | --- |
+| **Position** | Which corner holds the panel |
+| **Distance from the side**, **Distance from the top or bottom** | Space between the panel and the screen edges, in pixels on a 1080p screen |
+| **Panel size** | Scale from 0.5 to 2.5 |
+| **Show Codex**, **Show Claude** | Turn off a row you don't use. The panel gets shorter. |
+| **Reset display** | Time left, such as 2h 14m, or the reset time, such as 16:20 |
+| **Background color**, **Background opacity** | The panel background |
+| **Text color**, **Codex name color**, **Claude name color** | Text colors |
+| **Color high usage** | Turn the warning colors on or off |
+| **Warning from**, **Warning color** | 70% and orange-yellow by default |
+| **Alert from**, **Alert color** | 90% and red by default |
+
 ## Remove the panel
 
 Apply your original wallpaper in Wallpaper Engine. Remove the two Codex entries and restore your previous Claude Code status line, then remove the local wallpaper copy and the **~/.config/wallpaper-ai-usage** folder. Keep this checkout at its original path while the hooks are in use.
 
 ## Development
 
-Run **python3 -m unittest discover -s tests** from the checkout. The Python tests use temporary Scene and configuration files.
+Run **python3 -m unittest discover -s tests** from the checkout. The Python tests use temporary Scene and configuration files. The panel layout tests also need Node.js and are skipped without it.
 
 ## License
 
