@@ -7,6 +7,8 @@
 [![Wallpaper Engine](https://img.shields.io/badge/Wallpaper%20Engine-Scene-1B2838?logo=steam&logoColor=white)](https://store.steampowered.com/app/431960/Wallpaper_Engine/)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-FE5196?logo=conventionalcommits&logoColor=white)](https://www.conventionalcommits.org/en/v1.0.0/)
 
+English | [正體中文](README.zh-TW.md)
+
 Put Codex and Claude Code usage in a corner of your Wallpaper Engine Scene. The panel shows the percentage used and the time until reset for the 5-hour and 7-day windows. A percentage turns orange-yellow at 70% and red at 90%.
 
 ![Usage panel in the bottom-right corner of a Scene](docs/images/panel.png)
@@ -59,7 +61,7 @@ For an immediate Codex refresh, run **python3 wallpaper_usage.py codex --force**
 
 ## Customize the panel
 
-Select the copy in Wallpaper Engine and scroll to **AI Usage panel** at the end of its properties. Changes show right away.
+Select the copy in Wallpaper Engine and scroll to **AI Usage panel** at the end of its properties. Changes show right away. Setting names follow the Wallpaper Engine language. They come in English and Traditional Chinese, and other languages show English.
 
 <img src="docs/images/settings.png" alt="Panel settings in the Wallpaper Engine properties list" width="298">
 
