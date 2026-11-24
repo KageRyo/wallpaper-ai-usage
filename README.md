@@ -54,6 +54,8 @@ For an immediate Codex refresh, run **python3 wallpaper_usage.py codex --force**
 
 Select the copy in Wallpaper Engine and scroll to **AI Usage panel** at the end of its properties. Changes show right away.
 
+<img src="docs/images/settings.png" alt="Panel settings in the Wallpaper Engine properties list" width="298">
+
 | Setting | What it changes |
 | --- | --- |
 | **Position** | Which corner holds the panel |
