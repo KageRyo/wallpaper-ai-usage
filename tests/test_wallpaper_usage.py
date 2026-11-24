@@ -1,12 +1,43 @@
 from datetime import datetime
 import json
 from pathlib import Path
+import shutil
 import struct
+import subprocess
 import tempfile
 import unittest
 
-from scene import FONT, PREFIX, add_panel, install_scene, unpack
+from scene import FONT, PREFIX, SETTINGS, add_panel, install_scene, unpack
 from wallpaper_usage import active, claude_windows, display_fields, normalize
+
+
+NODE = shutil.which("node")
+# Runs the panel's layout script against stand-ins for Wallpaper Engine's layers.
+LAYOUT_HARNESS = r"""
+const [source, names, properties] = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+class Vec3 { constructor(x, y, z) { Object.assign(this, {x, y, z}); } }
+const layers = Object.fromEntries(names.map((name) => [name, {}]));
+const script = new Function('engine', 'thisScene', 'thisLayer', 'Vec3',
+    source.replace(/export function/g, 'function') + '; return applyUserProperties;');
+script({userProperties: properties}, {getLayer: (name) => layers[name]}, layers[names[0]], Vec3)({});
+process.stdout.write(JSON.stringify(layers));
+"""
+
+
+def run_layout(scene, properties):
+    names = [layer["name"] for layer in scene["objects"]]
+    script = scene["objects"][0]["visible"]["script"]
+    result = subprocess.run(
+        [NODE, "-e", LAYOUT_HARNESS], input=json.dumps([script, names, properties]),
+        capture_output=True, text=True, check=True, timeout=10,
+    )
+    return json.loads(result.stdout)
+
+
+def vector(value):
+    if isinstance(value, dict):
+        return [round(value[axis], 4) for axis in "xyz"]
+    return [round(float(part), 4) for part in value.split()]
 
 
 def package_content(name, data):
@@ -80,6 +111,42 @@ class SceneTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Truncated"):
                 unpack(package, target)
             self.assertEqual(list(target.iterdir()), [])
+
+
+@unittest.skipUnless(NODE, "Node.js runs the Scene layout script")
+class LayoutScriptTests(unittest.TestCase):
+    def setUp(self):
+        self.scene = {"general": {"orthogonalprojection": {"width": 3840, "height": 2160}}, "objects": []}
+        add_panel(self.scene, {})
+
+    def test_default_settings_match_the_saved_layout(self):
+        saved = {layer["name"]: layer for layer in self.scene["objects"]}
+        for name, layer in run_layout(self.scene, {}).items():
+            if "origin" in layer:
+                self.assertEqual(vector(layer["origin"]), vector(saved[name]["origin"]), name)
+
+    def test_moves_panel_and_closes_the_hidden_row(self):
+        layers = run_layout(self.scene, {
+            PREFIX + "position": "topleft", PREFIX + "showcodex": False, PREFIX + "size": 2,
+        })
+        # A 4K canvas doubles the 1080p layout. One row leaves a panel 294 by 84.
+        self.assertEqual(vector(layers["AI usage panel"]["origin"]), [25 * 2 + 147 * 4, 2160 - 35 * 2 - 42 * 4, 0])
+        self.assertEqual(layers["AI usage Codex five"]["alpha"], 0)
+        self.assertEqual(layers["AI usage Claude five"]["alpha"], 1)
+        self.assertEqual(layers["AI usage Claude five"]["origin"]["y"], 42 - 47)
+
+    def test_colors_usage_from_the_warning_and_alert_levels(self):
+        usage = {
+            PREFIX + "codexfive": "69%", PREFIX + "codexweek": "70%",
+            PREFIX + "claudefive": "90%", PREFIX + "claudeweek": "--",
+        }
+        text, warning, alert = (vector(SETTINGS[key]["value"]) for key in ("textcolor", "warncolor", "alertcolor"))
+        layers = run_layout(self.scene, usage)
+        colors = [vector(layers[f"AI usage {name}"]["color"])
+                  for name in ("Codex five", "Codex week", "Claude five", "Claude week")]
+        self.assertEqual(colors, [text, warning, alert, text])
+        layers = run_layout(self.scene, {**usage, PREFIX + "warn": False})
+        self.assertEqual(vector(layers["AI usage Claude five"]["color"]), text)
 
 
 class UsageTests(unittest.TestCase):

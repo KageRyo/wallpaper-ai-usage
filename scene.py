@@ -15,6 +15,60 @@ PROVIDERS = ("codex", "claude")
 WINDOWS = ("five", "week")
 RESERVED_DEVICE = re.compile(r"(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)", re.IGNORECASE)
 
+# Panel geometry in 1080p pixels, relative to the panel center.
+LAYOUT = {
+    "width": 294, "padding": 36, "row": 48, "heading": 17, "value": 47, "detail": 20,
+    "columns": {"label": -103, "five": -11, "week": 84},
+}
+FULL_HEIGHT = LAYOUT["padding"] + LAYOUT["row"] * len(PROVIDERS)
+
+
+def color_setting(text, value, **fields):
+    return {"type": "color", "text": text, "value": value, **fields}
+
+
+def slider(text, low, high, value, step=1, **fields):
+    fraction = isinstance(step, float)
+    return {
+        "type": "slider", "text": text, "min": low, "max": high, "value": value, "step": step,
+        "fraction": fraction, "precision": 2 if fraction else 0, **fields,
+    }
+
+
+# Shown in the Wallpaper Engine properties panel, in this order.
+SETTINGS = {
+    "heading": {"type": "text", "text": "<b>AI Usage panel</b>"},
+    "position": {
+        "type": "combo", "text": "Position", "value": "bottomright", "options": [
+            {"label": "Bottom right", "value": "bottomright"},
+            {"label": "Bottom left", "value": "bottomleft"},
+            {"label": "Top right", "value": "topright"},
+            {"label": "Top left", "value": "topleft"},
+        ],
+    },
+    "marginx": slider("Distance from the side", 0, 1600, 25),
+    "marginy": slider("Distance from the top or bottom", 0, 900, 35),
+    "size": slider("Panel size", 0.5, 2.5, 1.0, 0.05),
+    "showcodex": {"type": "bool", "text": "Show Codex", "value": True},
+    "showclaude": {"type": "bool", "text": "Show Claude", "value": True},
+    "resetmode": {
+        "type": "combo", "text": "Reset display", "value": "countdown", "options": [
+            {"label": "Time left", "value": "countdown"},
+            {"label": "Reset time", "value": "time"},
+        ],
+    },
+    "color": color_setting("Background color", "0.06 0.04 0.10"),
+    "opacity": slider("Background opacity", 0.0, 1.0, 0.83, 0.01),
+    "textcolor": color_setting("Text color", "1 1 1"),
+    "codexcolor": color_setting("Codex name color", "0.88 0.82 1"),
+    "claudecolor": color_setting("Claude name color", "1 0.80 0.72"),
+    "warn": {"type": "bool", "text": "Color high usage", "value": True},
+    "warnat": slider("Warning from (% used)", 1, 100, 70, condition=f"{PREFIX}warn.value"),
+    "warncolor": color_setting("Warning color", "1 0.76 0.30", condition=f"{PREFIX}warn.value"),
+    "alertat": slider("Alert from (% used)", 1, 100, 90, condition=f"{PREFIX}warn.value"),
+    "alertcolor": color_setting("Alert color", "1 0.36 0.34", condition=f"{PREFIX}warn.value"),
+}
+
 
 def read_json(path):
     return json.loads(path.read_text(encoding="utf-8-sig"))
@@ -94,7 +148,7 @@ export function update(value) {{
     const properties = engine.userProperties || {{}};
     const absolute = properties.{key} || value || '--';
     const cutoff = Number(properties.{epoch_key});
-    if (!(cutoff > 0)) return rendered = absolute;
+    if (properties.{PREFIX}resetmode === 'time' || !(cutoff > 0)) return rendered = absolute;
 
     const minutes = Math.ceil((cutoff * 1000 - now) / 60000);
     if (minutes <= 0) return rendered = 'Reset due';
@@ -104,6 +158,118 @@ export function update(value) {{
     return rendered = minutes + 'm';
 }}
 """
+
+
+LAYOUT_SCRIPT = """'use strict';
+const CONFIG = __CONFIG__;
+
+function setting(name) {
+    const value = (engine.userProperties || {})[CONFIG.prefix + name];
+    return value === undefined || value === null || value === '' ? CONFIG.defaults[name] : value;
+}
+
+function number(name) {
+    const value = Number(setting(name));
+    return isFinite(value) ? value : Number(CONFIG.defaults[name]);
+}
+
+function toColor(value) {
+    if (value && typeof value === 'object') return new Vec3(Number(value.x), Number(value.y), Number(value.z));
+    const parts = String(value).trim().split(/\\s+/).map(Number);
+    return parts.length === 3 && parts.every(isFinite) ? new Vec3(parts[0], parts[1], parts[2]) : undefined;
+}
+
+function color(name) {
+    return toColor(setting(name)) || toColor(CONFIG.defaults[name]);
+}
+
+function place(name, x, y, rgb, alpha) {
+    const layer = thisScene.getLayer(name);
+    if (!layer) return;
+    layer.origin = new Vec3(x, y, 0);
+    layer.color = rgb;
+    layer.alpha = alpha;
+}
+
+function layout() {
+    const names = CONFIG.names;
+    const background = thisScene.getLayer(names.background);
+    if (!background) return;
+    const canvas = CONFIG.canvas;
+    const box = CONFIG.layout;
+    const rows = CONFIG.providers.filter((provider) => setting('show' + provider) !== false);
+    const scale = Math.max(0.1, number('size')) * canvas.factor;
+    const height = box.padding + box.row * rows.length;
+    const position = String(setting('position'));
+    const halfWidth = box.width / 2 * scale;
+    const halfHeight = height / 2 * scale;
+    const marginX = Math.max(0, number('marginx')) * canvas.factor;
+    const marginY = Math.max(0, number('marginy')) * canvas.factor;
+    thisLayer.origin = new Vec3(
+        position.endsWith('left') ? marginX + halfWidth : canvas.width - marginX - halfWidth,
+        position.startsWith('top') ? canvas.height - marginY - halfHeight : marginY + halfHeight,
+        0
+    );
+    thisLayer.scale = new Vec3(scale, scale, 1);
+
+    const shown = rows.length ? 1 : 0;
+    background.scale = new Vec3(1, height / CONFIG.fullHeight, 1);
+    background.color = color('color');
+    background.alpha = shown * Math.min(1, Math.max(0, number('opacity')));
+
+    const text = color('textcolor');
+    const top = height / 2;
+    const columns = box.columns;
+    for (const window of CONFIG.windows) {
+        place(names.headings[window], columns[window], top - box.heading, text, shown * 0.75);
+    }
+
+    const highlight = setting('warn') !== false;
+    const levels = [[number('alertat'), color('alertcolor')], [number('warnat'), color('warncolor')]];
+    const usageColor = (used) => {
+        const level = highlight && levels.find(([limit]) => used >= limit);
+        return level ? level[1] : text;
+    };
+    for (const provider of CONFIG.providers) {
+        const row = rows.indexOf(provider);
+        const visible = row < 0 ? 0 : 1;
+        const valueY = top - box.value - box.row * Math.max(row, 0);
+        const detailY = valueY - box.detail;
+        const group = names.providers[provider];
+        place(group.title, columns.label, valueY, color(provider + 'color'), visible);
+        place(group.reset, columns.label, detailY, text, visible * 0.7);
+        for (const window of CONFIG.windows) {
+            const used = parseFloat((engine.userProperties || {})[CONFIG.prefix + provider + window]);
+            place(group[window], columns[window], valueY, usageColor(used), visible);
+            place(group[window + 'countdown'], columns[window], detailY, text, visible * 0.8);
+        }
+    }
+}
+
+export function init(value) {
+    layout();
+    return value;
+}
+
+export function applyUserProperties() {
+    layout();
+}
+"""
+
+
+def layer_names():
+    names = {
+        "root": "AI usage panel", "background": "AI usage background",
+        "headings": {"five": "AI usage 5-hour heading", "week": "AI usage 7-day heading"}, "providers": {},
+    }
+    for provider in PROVIDERS:
+        title = provider.title()
+        group = {"title": f"AI usage {title}", "reset": f"AI usage {title} reset label"}
+        for window in WINDOWS:
+            group[window] = f"AI usage {title} {window}"
+            group[window + "countdown"] = f"AI usage {title} {window} countdown"
+        names["providers"][provider] = group
+    return names
 
 
 def add_panel(scene, project):
@@ -119,62 +285,72 @@ def add_panel(scene, project):
     properties = project.setdefault("general", {}).setdefault("properties", {})
     if any(key.startswith(PREFIX) for key in properties):
         raise ValueError("This Scene already has a usage panel")
-    properties[f"{PREFIX}opacity"] = {
-        "type": "slider", "text": "Usage panel background opacity",
-        "min": 0.0, "max": 1.0, "value": 0.83, "fraction": True, "precision": 2,
-        "step": 0.01, "order": 500,
-    }
+    for order, (key, setting) in enumerate(SETTINGS.items(), start=500):
+        properties[PREFIX + key] = {**setting, "order": order}
+    defaults = {key: setting["value"] for key, setting in SETTINGS.items() if "value" in setting}
+
     layers = scene["objects"]
     next_id = max((layer["id"] for layer in layers), default=0) + 1
     factor = min(width / 1920, height / 1080)
+    names = layer_names()
+    config = {
+        "prefix": PREFIX, "canvas": {"width": width, "height": height, "factor": factor},
+        "layout": LAYOUT, "fullHeight": FULL_HEIGHT, "providers": PROVIDERS, "windows": WINDOWS,
+        "names": names, "defaults": defaults,
+    }
 
-    def add_layer(name, right, bottom, **fields):
+    def add_layer(name, **fields):
         nonlocal next_id
-        layers.append({
-            "id": next_id, "name": name, "origin": f"{width - right * factor:g} {bottom * factor:g} 0",
-            "depthtest": "disabled", "castshadow": False, **fields,
-        })
+        layers.append({"id": next_id, "name": name, **fields})
         next_id += 1
+        return next_id - 1
 
-    add_layer(
-        "AI usage panel", 172, 101, image=PANEL_MODEL, size=f"{294 * factor:g} {132 * factor:g}",
-        color="0.06 0.04 0.10", alpha={"user": f"{PREFIX}opacity", "value": 0.83},
+    # The script repeats this placement when settings change.
+    root = add_layer(
+        names["root"],
+        origin=f"{width - (defaults['marginx'] + LAYOUT['width'] / 2) * factor:g} "
+               f"{(defaults['marginy'] + FULL_HEIGHT / 2) * factor:g} 0",
+        scale=f"{factor:g} {factor:g} 1",
+        visible={"script": LAYOUT_SCRIPT.replace("__CONFIG__", json.dumps(config)), "value": True},
     )
-    muted = "0.83 0.78 0.88"
+    child = {"parent": root, "depthtest": "disabled", "castshadow": False}
+    add_layer(
+        names["background"], image=PANEL_MODEL, origin="0 0 0", size=f"{LAYOUT['width']} {FULL_HEIGHT}",
+        color=defaults["color"], alpha=defaults["opacity"], **child,
+    )
 
-    def add_text(name, right, bottom, text, color=muted, scale=0.30):
+    def add_text(name, column, y, text, color, alpha=1.0, scale=0.30):
         add_layer(
-            name, right, bottom, text=text, font=FONT, padding=2, pointsize=16,
-            horizontalalign="center", verticalalign="center", anchor="none",
-            scale=f"{scale * factor:g} {scale * factor:g} 1", color=color,
+            name, origin=f"{LAYOUT['columns'][column]:g} {y:g} 0", text=text, font=FONT, padding=2,
+            pointsize=16, horizontalalign="center", verticalalign="center", anchor="none",
+            scale=f"{scale:g} {scale:g} 1", color=color, alpha=alpha, **child,
         )
 
-    add_text("AI usage 5-hour heading", 183, 150, "5h used", scale=0.23)
-    add_text("AI usage 7-day heading", 88, 150, "7d used", scale=0.23)
-    for provider, bottom, label_color in (
-        ("codex", 120, "0.88 0.82 1.0"),
-        ("claude", 72, "1.0 0.80 0.72"),
-    ):
+    top = FULL_HEIGHT / 2
+    text_color = defaults["textcolor"]
+    for window, label in (("five", "5h used"), ("week", "7d used")):
+        add_text(names["headings"][window], window, top - LAYOUT["heading"], label, text_color, 0.75, 0.23)
+    for row, provider in enumerate(PROVIDERS):
         title = provider.title()
-        add_text(f"AI usage {title}", 275, bottom, title, label_color)
-        add_text(f"AI usage {title} reset label", 275, bottom - 20, "reset", scale=0.21)
-        for window, right in (("five", 183), ("week", 88)):
+        group = names["providers"][provider]
+        value_y = top - LAYOUT["value"] - LAYOUT["row"] * row
+        detail_y = value_y - LAYOUT["detail"]
+        add_text(group["title"], "label", value_y, title, defaults[provider + "color"])
+        add_text(group["reset"], "label", detail_y, "reset", text_color, 0.7, 0.21)
+        for window in WINDOWS:
             key = PREFIX + provider + window
             reset = key + "reset"
             epoch = key + "epoch"
             for suffix, default in (("", "--"), ("reset", "--"), ("epoch", "")):
                 properties[key + suffix] = {
                     "type": "textinput", "text": f"{title} {window} {suffix}".strip(),
-                    "order": 510, "condition": "false", "value": default,
+                    "order": 600, "condition": "false", "value": default,
                 }
+            add_text(group[window], window, value_y, {"user": key, "value": "--"}, text_color)
             add_text(
-                f"AI usage {title} {window}", right, bottom,
-                {"user": key, "value": "--"}, "1 1 1",
-            )
-            add_text(
-                f"AI usage {title} {window} countdown", right, bottom - 20,
+                group[window + "countdown"], window, detail_y,
                 {"user": reset, "script": countdown_script(reset, epoch), "value": "--"},
-                scale=0.22,
+                text_color, 0.8, 0.22,
             )
 
 
