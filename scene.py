@@ -23,6 +23,11 @@ LAYOUT = {
 FULL_HEIGHT = LAYOUT["padding"] + LAYOUT["row"] * len(PROVIDERS)
 
 
+def label(english, chinese):
+    """Setting text by Wallpaper Engine language. Other languages use English."""
+    return {"en-us": english, "zh-cht": chinese}
+
+
 def color_setting(text, value, **fields):
     return {"type": "color", "text": text, "value": value, **fields}
 
@@ -37,36 +42,36 @@ def slider(text, low, high, value, step=1, **fields):
 
 # Shown in the Wallpaper Engine properties panel, in this order.
 SETTINGS = {
-    "heading": {"type": "text", "text": "<b>AI Usage panel</b>"},
+    "heading": {"type": "text", "text": label("<b>AI Usage panel</b>", "<b>AI 用量面板</b>")},
     "position": {
-        "type": "combo", "text": "Position", "value": "bottomright", "options": [
-            {"label": "Bottom right", "value": "bottomright"},
-            {"label": "Bottom left", "value": "bottomleft"},
-            {"label": "Top right", "value": "topright"},
-            {"label": "Top left", "value": "topleft"},
+        "type": "combo", "text": label("Position", "位置"), "value": "bottomright", "options": [
+            {"label": label("Bottom right", "右下角"), "value": "bottomright"},
+            {"label": label("Bottom left", "左下角"), "value": "bottomleft"},
+            {"label": label("Top right", "右上角"), "value": "topright"},
+            {"label": label("Top left", "左上角"), "value": "topleft"},
         ],
     },
-    "marginx": slider("Distance from the side", 0, 1600, 25),
-    "marginy": slider("Distance from the top or bottom", 0, 900, 35),
-    "size": slider("Panel size", 0.5, 2.5, 1.0, 0.05),
-    "showcodex": {"type": "bool", "text": "Show Codex", "value": True},
-    "showclaude": {"type": "bool", "text": "Show Claude", "value": True},
+    "marginx": slider(label("Distance from the side", "左右邊距"), 0, 1600, 25),
+    "marginy": slider(label("Distance from the top or bottom", "上下邊距"), 0, 900, 35),
+    "size": slider(label("Panel size", "面板大小"), 0.5, 2.5, 1.0, 0.05),
+    "showcodex": {"type": "bool", "text": label("Show Codex", "顯示 Codex"), "value": True},
+    "showclaude": {"type": "bool", "text": label("Show Claude", "顯示 Claude"), "value": True},
     "resetmode": {
-        "type": "combo", "text": "Reset display", "value": "countdown", "options": [
-            {"label": "Time left", "value": "countdown"},
-            {"label": "Reset time", "value": "time"},
+        "type": "combo", "text": label("Reset display", "重置時間"), "value": "countdown", "options": [
+            {"label": label("Time left", "顯示剩餘時間"), "value": "countdown"},
+            {"label": label("Reset time", "顯示重置時刻"), "value": "time"},
         ],
     },
-    "color": color_setting("Background color", "0.06 0.04 0.10"),
-    "opacity": slider("Background opacity", 0.0, 1.0, 0.83, 0.01),
-    "textcolor": color_setting("Text color", "1 1 1"),
-    "codexcolor": color_setting("Codex name color", "0.88 0.82 1"),
-    "claudecolor": color_setting("Claude name color", "1 0.80 0.72"),
-    "warn": {"type": "bool", "text": "Color high usage", "value": True},
-    "warnat": slider("Warning from (% used)", 1, 100, 70, condition=f"{PREFIX}warn.value"),
-    "warncolor": color_setting("Warning color", "1 0.76 0.30", condition=f"{PREFIX}warn.value"),
-    "alertat": slider("Alert from (% used)", 1, 100, 90, condition=f"{PREFIX}warn.value"),
-    "alertcolor": color_setting("Alert color", "1 0.36 0.34", condition=f"{PREFIX}warn.value"),
+    "color": color_setting(label("Background color", "背景顏色"), "0.06 0.04 0.10"),
+    "opacity": slider(label("Background opacity", "背景不透明度"), 0.0, 1.0, 0.83, 0.01),
+    "textcolor": color_setting(label("Text color", "文字顏色"), "1 1 1"),
+    "codexcolor": color_setting(label("Codex name color", "Codex 名稱顏色"), "0.88 0.82 1"),
+    "claudecolor": color_setting(label("Claude name color", "Claude 名稱顏色"), "1 0.80 0.72"),
+    "warn": {"type": "bool", "text": label("Color high usage", "用量高時變色"), "value": True},
+    "warnat": slider(label("Warning from (% used)", "注意門檻（%）"), 1, 100, 70, condition=f"{PREFIX}warn.value"),
+    "warncolor": color_setting(label("Warning color", "注意顏色"), "1 0.76 0.30", condition=f"{PREFIX}warn.value"),
+    "alertat": slider(label("Alert from (% used)", "警告門檻（%）"), 1, 100, 90, condition=f"{PREFIX}warn.value"),
+    "alertcolor": color_setting(label("Alert color", "警告顏色"), "1 0.36 0.34", condition=f"{PREFIX}warn.value"),
 }
 
 
@@ -285,8 +290,22 @@ def add_panel(scene, project):
     properties = project.setdefault("general", {}).setdefault("properties", {})
     if any(key.startswith(PREFIX) for key in properties):
         raise ValueError("This Scene already has a usage panel")
+    # Wallpaper Engine shows a ui_ token in the user's language and falls back to en-us.
+    localization = project["general"].setdefault("localization", {})
+
+    def token(name, translations):
+        key = f"ui_{PREFIX}_{name}"
+        for language, value in translations.items():
+            localization.setdefault(language, {})[key] = value
+        return key
+
     for order, (key, setting) in enumerate(SETTINGS.items(), start=500):
-        properties[PREFIX + key] = {**setting, "order": order}
+        properties[PREFIX + key] = {**setting, "text": token(key, setting["text"]), "order": order}
+        if "options" in setting:
+            properties[PREFIX + key]["options"] = [
+                {**option, "label": token(f"{key}_{option['value']}", option["label"])}
+                for option in setting["options"]
+            ]
     defaults = {key: setting["value"] for key, setting in SETTINGS.items() if "value" in setting}
 
     layers = scene["objects"]

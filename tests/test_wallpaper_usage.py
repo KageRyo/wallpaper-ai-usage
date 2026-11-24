@@ -71,6 +71,23 @@ class SceneTests(unittest.TestCase):
                 self.assertIn("engine.userProperties", text[key + "reset"]["script"])
                 self.assertIn(key + "epoch", props)
 
+    def test_settings_have_english_and_chinese_labels(self):
+        scene = {"general": {"orthogonalprojection": {"width": 1920, "height": 1080}}, "objects": []}
+        project = {"general": {"localization": {"en-us": {"ui_rain": "Rain"}}}}
+        add_panel(scene, project)
+        localization = project["general"]["localization"]
+        self.assertEqual(localization["en-us"]["ui_rain"], "Rain")
+        settings = [value for key, value in project["general"]["properties"].items()
+                    if key.startswith(PREFIX) and value.get("condition") != "false"]
+        tokens = [token for value in settings
+                  for token in (value["text"], *(option["label"] for option in value.get("options", [])))]
+        self.assertEqual(len(tokens), len(set(tokens)))
+        for token in tokens:
+            # Wallpaper Engine only translates labels that start with ui_.
+            self.assertTrue(token.startswith("ui_"), token)
+            for language in ("en-us", "zh-cht"):
+                self.assertTrue(localization[language].get(token), (language, token))
+
     def test_install_copies_packed_scene_and_preserves_source(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
