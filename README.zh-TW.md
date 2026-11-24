@@ -88,4 +88,12 @@ python3 wallpaper_usage.py hooks --claude-command 'bash ~/.claude/my-statusline.
 
 ## 授權
 
-[MIT](LICENSE)
+本專案採用 [MIT 授權](LICENSE)，著作權所有 © 2026 Chien-Hsun Chang。你可以使用、複製、修改和散布，商業用途也可以，只要保留著作權聲明和授權條文。本軟體依現狀提供，不附任何擔保。
+
+MIT 授權涵蓋這個專案自己做的部分，也就是 repo 裡的程式、測試和文件。下面這些不在範圍內：
+
+- Wallpaper Engine 本身。它在 Steam 上販售，有自己的使用條款。
+- 你加上面板的桌布。工作坊桌布裡的圖片、影片、字型和音樂都屬於原作者，安裝程式做出的副本也一樣。副本請只在自己的桌面使用，不要當成自己的作品上傳到工作坊。
+- Codex 和 Claude Code。它們分別依 OpenAI 和 Anthropic 的條款使用。
+
+這是獨立專案，和 Wallpaper Engine、Valve、OpenAI、Anthropic 都沒有隸屬或合作關係。

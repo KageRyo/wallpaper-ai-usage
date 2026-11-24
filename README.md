@@ -88,4 +88,12 @@ Run **python3 -m unittest discover -s tests** from the checkout. The Python test
 
 ## License
 
-[MIT](LICENSE)
+This project is released under the [MIT License](LICENSE). Copyright © 2026 Chien-Hsun Chang. You can use, copy, change and share it, including for commercial work, as long as you keep the copyright and license notice. The software is provided as is, without warranty.
+
+The license covers what this project made: the scripts, tests and documentation in this repository. It does not cover:
+
+- Wallpaper Engine itself. It is sold on Steam and has its own terms of use.
+- The wallpapers you add the panel to. The images, videos, fonts and music in a Workshop wallpaper belong to its author, and so does the copy the installer makes. Use that copy on your own desktop and don't upload it to the Workshop as your own work.
+- Codex and Claude Code. They follow the terms of OpenAI and Anthropic.
+
+This is an independent project with no affiliation to Wallpaper Engine, Valve, OpenAI or Anthropic.
