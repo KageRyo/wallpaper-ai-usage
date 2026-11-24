@@ -156,7 +156,7 @@ def add_panel(scene, project):
         ("claude", 72, "1.0 0.80 0.72"),
     ):
         title = provider.title()
-        add_text(f"AI usage {title}", 275, bottom - 8, title, label_color)
+        add_text(f"AI usage {title}", 275, bottom, title, label_color)
         add_text(f"AI usage {title} reset label", 275, bottom - 20, "reset", scale=0.21)
         for window, right in (("five", 183), ("week", 88)):
             key = PREFIX + provider + window
